@@ -1,0 +1,85 @@
+;SECUENCIA DE LEDS EN SEMAFORO
+;AUTOR: JUAN DIEGO VIDAL, CARLOS HURTADO BEDOYA.
+	  
+__CONFIG _FOSC_XT & _WDTE_OFF & _PWRTE_OFF & _CP_OFF
+	  
+LIST    p=16F84			    ; Microcontrolador 16F84A
+ 
+          #include "P16F84.INC"	    ; Incluimos la cabezera para el PIC
+ 
+          CBLOCK 0x10		    ; Almacenamiento Temporal
+              estado		    ; Variable estado se cargara con valores de 0 a 3 (4 estados de bits)
+              contador1
+	      contador2
+	      contador3
+          ENDC
+ 
+          org    0		    ; Inicializamos el vector
+          goto    puertos	    ; Ir al código de inicio.
+ 
+	  org    4		    ; Interrupción del vector.
+halt      goto    halt		    ; Permanecer en el bucle infinito.
+ 
+puertos   clrw			    ; Limpiamos el registro W.
+          movwf  PORTA		    ; Limpiamos el registro PORT A.
+          movwf  PORTB		    ; Limpiamos el registro PORT B.
+          bsf    STATUS,RP0	    ; Seleccionamos el banco 1
+          clrw			    ; Limpiamos el registro W
+          movwf  TRISB		    ; Configuramos el Puerto B como salida.
+          bcf    STATUS,RP0	    ; Seleccionamos el banco 0
+ 
+inicio	  clrw			    ; Limpiamos el registro W.
+          movwf  estado		    ; Limpiamos la variable estado.
+ 
+ciclo     call   Mascara	    ; Convertimos estado en  Mascara.
+          movwf  PORTB		    ; Movemos el registro W al registro PORT B.
+          incf   estado,W	    ; Incrementamos la variable estado y el incremento va al registro W.
+          andlw  0x03		    ; 00000011 AND W de esta manera me aseguro que el conteo solo sea hasta 3
+          movwf  estado		    ; Movemos el registro W a estado.
+          call   retardo1s	    ; Retardo de 1 segundo
+          goto   ciclo		    ; ir a ciclo 
+ 
+     
+;La función "mascara" devuelve los bits que seran mostrados en el Puerto B, (encender leds)
+;Se divide el Puerto B en dos nibbles: RB7 RB6 RB5 RB4 | RB3 RB2 RB1 RB0
+;El nibble inferior contiene los bits que encenderan al 1er semáfoto
+;El nibble superior contiene los bits que ensenderan al 2do semáforo
+
+;NIBBLE INFERIOR:			NIBBLE SUPERIOR:		    
+	  ;RB0 = ROJO1			    ;RB4 = ROJO2    
+	  ;RB1 = ÁMBAR1			    ;RB5 = ÁMBAR2
+	  ;RB2 = VERDE1			    ;RB6 = VERDE2
+	  ;RB3 = 0			    ;RB7 = 0
+
+;estado		RB7 RB6	RB5 RB4	|RB3 RB2 RB1 RB0
+;   0		0   1	0   0	|0   0	  0   1
+;   1		0   0	1   0	|0   0	  0   1	  
+;   2		0   0	0   1	|0   1	  0   0
+;   3		0   0	0   1	|0   0	  1   0
+	  
+	  	 
+Mascara   movf   estado,W        ; Cargamos "estado" en W.
+          addwf  PCL,F		 
+          retlw  0x41            ; estado==0  Rojo1 y Verde2	      01000001
+          retlw  0x21            ; estado==1  Rojo1 y Ámbar2        00100001
+          retlw  0x14            ; estado==2  Verde1 y Rojo2	      00010100
+          retlw  0x12            ; estado==3  Ámbar1 y Rojo2        00010010 
+	  
+	  
+; Función que usa dos bubles para generar un retardo de 1s.
+	  
+retardo1s clrf   contador1
+	  clrf	 contador2
+	  movlw	 5
+	  movwf	 contador3
+delay1	  decfsz contador1,F
+	  goto   delay1
+	  decfsz contador2,F
+	  goto   delay1
+	  decfsz contador3,F
+	  goto   delay1
+          
+          return
+          END
+
+
